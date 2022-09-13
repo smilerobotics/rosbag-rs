@@ -23,20 +23,16 @@ impl Compression {
             Compression::Bzip2 => {
                 let mut decompressed = Vec::new();
                 decompressed.reserve(decompressed_size.map(|s| s as usize).unwrap_or(data.len()));
-                let mut decompressor = bzip2::Decompress::new(false);
-                decompressor
-                    .decompress_vec(data, &mut decompressed)
+                let mut decoder = bzip2_rs::DecoderReader::new(data);
+                std::io::copy(&mut decoder, &mut decompressed)
                     .map_err(|e| Error::Bzip2DecompressionError(e.to_string()))?;
                 Cow::from(decompressed)
             }
             Compression::Lz4 => {
-                let mut decoder = lz4::Decoder::new(data)
-                    .map_err(|e| Error::Lz4DecompressionError(e.to_string()))?;
+                let mut decoder = lz4_flex::frame::FrameDecoder::new(data);
                 let mut decompressed = Vec::new();
-                decompressed.reserve(decompressed_size.map(|s| s as usize).unwrap_or(data.len()));
-                std::io::copy(&mut decoder, &mut decompressed).map_err(|_| {
-                    Error::Lz4DecompressionError("Error while decoding".to_string())
-                })?;
+                std::io::copy(&mut decoder, &mut decompressed)
+                    .map_err(|e| Error::Lz4DecompressionError(e.to_string()))?;
                 Cow::from(decompressed)
             }
             Compression::None => Cow::from(data),

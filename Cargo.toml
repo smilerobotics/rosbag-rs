@@ -14,8 +14,10 @@ categories = ["parser-implementations", "science::robotics"]
 
 [dependencies]
 byteorder = "1.1"
-bzip2 = "0.4.3"
+bzip2-rs = "0.1.2"
 base16ct = "0.1"
 log = "0.4.4"
-lz4 = "1.23.2"
+lz4_flex = "0.9.5"
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
 memmap2 = "0.5"

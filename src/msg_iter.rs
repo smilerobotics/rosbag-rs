@@ -22,7 +22,7 @@ pub struct MessageRecordsIterator<'a> {
 impl<'a> MessageRecordsIterator<'a> {
     pub(crate) fn new(data: &'a [u8]) -> Self {
         assert!(
-            data.len() <= 1 << 32,
+            data.len() as u64 <= 1u64 << 32,
             "chunk length must not be bigger than 2^32"
         );
         Self {

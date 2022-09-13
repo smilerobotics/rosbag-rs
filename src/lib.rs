@@ -52,6 +52,7 @@
 //! ```
 #![warn(missing_docs, rust_2018_idioms)]
 
+#[cfg(not(target_family = "wasm"))]
 use memmap2::Mmap;
 use std::{fs, io, path::Path, result, str};
 
@@ -79,8 +80,8 @@ pub use index_iter::{IndexRecord, IndexRecordsIterator};
 pub use msg_iter::{MessageRecord, MessageRecordsIterator};
 
 /// Open rosbag file.
-pub struct RosBag {
-    data: Mmap,
+pub struct RosBag<Data> {
+    data: Data,
     start_pos: usize,
     index_pos: usize,
     conn_count: u32,
@@ -144,12 +145,20 @@ fn parse_bag_header(data: &[u8]) -> Result<(u64, BagHeader)> {
     Ok((cursor.pos(), bag_header))
 }
 
-impl RosBag {
+#[cfg(not(target_family = "wasm"))]
+impl RosBag<Mmap> {
     /// Create a new iterator over provided path to ROS bag file.
     pub fn new<P: AsRef<Path>>(path: P) -> io::Result<Self> {
         let data = unsafe { Mmap::map(&fs::File::open(path)?)? };
 
-        let (start_pos, header) = parse_bag_header(&data).map_err(|_| {
+        Self::from_data(data)
+    }
+}
+
+impl<Data: AsRef<[u8]>> RosBag<Data> {
+    /// Create a new iterator over provided path to ROS bag file.
+    pub fn from_data(data: Data) -> io::Result<Self> {
+        let (start_pos, header) = parse_bag_header(data.as_ref()).map_err(|_| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
                 "Invalid or unsupported rosbag header",
@@ -177,7 +186,7 @@ impl RosBag {
 
     /// Get iterator over records in the chunk section.
     pub fn chunk_records(&self) -> ChunkRecordsIterator<'_> {
-        let cursor = Cursor::new(&self.data[self.start_pos..self.index_pos]);
+        let cursor = Cursor::new(&self.data.as_ref()[self.start_pos..self.index_pos]);
         ChunkRecordsIterator {
             cursor,
             offset: self.start_pos as u64,
@@ -186,7 +195,7 @@ impl RosBag {
 
     /// Get iterator over records in the index section.
     pub fn index_records(&self) -> IndexRecordsIterator<'_> {
-        let cursor = Cursor::new(&self.data[self.index_pos..]);
+        let cursor = Cursor::new(&self.data.as_ref()[self.index_pos..]);
         IndexRecordsIterator {
             cursor,
             offset: self.index_pos as u64,
